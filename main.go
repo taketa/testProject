@@ -33,7 +33,7 @@ func main() {
 		}
 		resp, err := http.Get("https://blockchain.info/rawaddr/"+addrPubKey.EncodeAddress())
 		if err != nil {
-			// handle error
+			fmt.Println(err)
 		}
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
