@@ -5,30 +5,48 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
+	"bytes"
+	"encoding/binary"
+	"io/ioutil"
+	"net/http"
+	"encoding/json"
 )
-
+type AddrInfo struct {
+	Address string
+	N_tx int
+	Total_sent int
+	Final_balance int
+}
+var (
+	buf bytes.Buffer
+	num int32
+	addrInfo AddrInfo
+)
 func main() {
-	var num int32 = 1
-	he := fmt.Sprintf("%x", num)
-	fmt.Println("int to hex: ", he)
-	heBt := []byte(he)
-	fmt.Println("hex to bytes: ", heBt)
-	//elliptic curve Secp256k1 y2 = x3 + 7
-	// S256 returns a Curve which implements secp256k1.
-	privKey, pubKey := btcec.PrivKeyFromBytes(btcec.S256(), heBt)
-	fmt.Println("privKey: ", privKey.D)
-	fmt.Println("pubKey", pubKey)
+	for num=1;num<=100;num++{
+		binary.Write(&buf,binary.BigEndian,num)
+		_, pubKey := btcec.PrivKeyFromBytes(btcec.S256(), buf.Bytes())
+		serCompr := pubKey.SerializeUncompressed()
+		addrPubKey, err := btcutil.NewAddressPubKey(serCompr, &chaincfg.MainNetParams)
+		if err != nil {
+			fmt.Println(err)
+		}
+		resp, err := http.Get("https://blockchain.info/rawaddr/"+addrPubKey.EncodeAddress())
+		if err != nil {
+			// handle error
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		err = json.Unmarshal(body, &addrInfo)
+		if err != nil {
+			fmt.Println("error:", err)
+		}
+		if addrInfo.N_tx>0{
+			fmt.Printf("PrivKey: %d; Addr: %s; n_tx: %d; total_sent: %d; ballance: %d\n", num, addrInfo.Address,addrInfo.N_tx,addrInfo.Total_sent, addrInfo.Final_balance)
 
-	//SerializeCompressed serializes a public key in a 33-byte compressed format.
-	serCompr := pubKey.SerializeCompressed()
-
-	addrPubKey, err := btcutil.NewAddressPubKey(serCompr, &chaincfg.MainNetParams)
-	if err != nil {
-		fmt.Println(err)
+		}
+		buf.Reset()
 	}
-	fmt.Println("addrPubKey: ", addrPubKey)
-	// Hash160 calculates the hash ripemd160(sha256(b)).
-	//	btcutil.Hash160()
-	//fmt.Println("serCompr: ",serCompr)
+
 
 }
